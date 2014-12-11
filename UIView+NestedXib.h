@@ -8,8 +8,14 @@
 
 #import <UIKit/UIKit.h>
 
+IB_DESIGNABLE
 @interface UIView (NestedXib)
 
 + (NSString *)xibName;
 
+- (void)drawInterfaceBuilderRect:(CGRect)rect;
+
 @end
+
+//Put this into your custom class implementation
+#define IB_DRAW - (void)drawRect:(CGRect)rect { [self drawInterfaceBuilderRect:rect]; }

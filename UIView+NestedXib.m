@@ -15,23 +15,21 @@
 static NSMutableSet *loadingXibs;
 static NSArray *propertiesToTransfer;
 
-IMP originalImp;
+id(*originalImp)(id, SEL, NSCoder *);
 
 + (void)load
 {
     IMP customImp = class_getMethodImplementation([UIView class], @selector(nested_xib_awakeAfterUsingCoder:));
     Method originalMethod = class_getInstanceMethod([UIView class], @selector(awakeAfterUsingCoder:));
     
-    originalImp = method_setImplementation(originalMethod, customImp);
+    originalImp = (id(*)(id,SEL,NSCoder*))method_setImplementation(originalMethod, customImp);
 }
 
 + (void)initialize
 {
     loadingXibs = [NSMutableSet new];
 
-    propertiesToTransfer = @[@"backgroundColor", @"frame", @"opaque", @"clipsToBounds", @"autoresizesSubviews",
-                             @"autoresizingMask", @"hidden", @"clearsContextBeforeDrawing", @"tintColor", @"alpha",
-                             @"exclusiveTouch", @"userInteractionEnabled", @"contentMode"];
+    propertiesToTransfer = @[@"frame", @"autoresizesSubviews", @"autoresizingMask", @"hidden", @"userInteractionEnabled", @"translatesAutoresizingMaskIntoConstraints"];
     [super initialize];
 }
 
@@ -61,16 +59,11 @@ IMP originalImp;
 + (NSString *)xibName
 {
     NSString *guessName = NSStringFromClass([self class]);
-    if ([[NSBundle mainBundle] pathForResource:guessName ofType:@"nib"]) {
+    if ([[NSBundle bundleForClass:[self class]] pathForResource:guessName ofType:@"nib"]) {
         return guessName;
     } else {
         return nil;
     }
-}
-
-+ (NSArray *)customProperties
-{
-    return @[];
 }
 
 + (BOOL)isLoadingXib:(NSString *)name
@@ -92,9 +85,7 @@ IMP originalImp;
 
 + (void)transferPropertiesFromView:(UIView *)src toView:(UIView *)dst
 {
-    //Transferring autolayout
-    dst.translatesAutoresizingMaskIntoConstraints = NO;
-    
+    //Transferring autolayout    
     for (NSLayoutConstraint *constraint in src.constraints) {
         BOOL replaceFirstItem = [constraint firstItem] == src;
         BOOL replaceSecondItem = [constraint secondItem] == src;
@@ -113,5 +104,32 @@ IMP originalImp;
     }
 }
 
+- (void)drawInterfaceBuilderRect:(CGRect)rect
+{
+    NSString *xibName = [[[self class] xibName] stringByAppendingPathExtension:@"xib"];
+    
+    if (xibName) {
+        
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        
+        [[UIColor colorWithWhite:0.93 alpha:1] setFill];
+        
+        CGContextFillRect(context, self.bounds);
+        
+        UILabel *label = [[UILabel alloc] initWithFrame:self.bounds];
+        label.lineBreakMode = NSLineBreakByWordWrapping;
+        label.numberOfLines = 0;
+        label.textAlignment = NSTextAlignmentCenter;
+        label.textColor = [UIColor colorWithWhite:0.78 alpha:1];
+        
+        UIFont *baseFont = [UIFont fontWithName:@"HelveticaNeue-CondensedBold" size:33];
+        UIFont *subtitleFont = [baseFont fontWithSize:24];
+        NSMutableAttributedString *string = [[NSMutableAttributedString alloc] initWithString:@"Nested Xib\n" attributes:@{NSFontAttributeName : baseFont}];
+        [string appendAttributedString:[[NSAttributedString alloc] initWithString:xibName attributes:@{NSFontAttributeName : subtitleFont}]];
+        label.attributedText = string;
+        
+        [label drawRect:self.bounds];
+    }
+}
 
 @end
